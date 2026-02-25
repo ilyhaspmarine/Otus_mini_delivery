@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "delivery.serviceName" . | quote }}
+  labels:
+    app: {{ include "delivery.appName" . | quote }}
+spec:
+  selector:
+    app: {{ include "delivery.appName" . | quote }}
+  ports:
+    - name: {{ .Values.service.portName }}
+      protocol: TCP
+      port: {{ int .Values.service.port }}
+      targetPort: 8000
+  type: {{ .Values.service.type }}
