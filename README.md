@@ -1,12 +1,3 @@
-# Домашнее задание №7
-## Restfull
-
-### Сервис биллинга
-#### Функционал
-- Создание нового кошелька для пользователя (1 кошелек на пользователя)
-- Проведение операций по кошельку (в + или в -)
-- Получение текущего баланса кошелька
-
 ### ПОДГОТОВКА
 #### в /etc/hosts прописываем
 ```
@@ -28,18 +19,18 @@ minikube start --driver=docker
 ### СТАВИМ ПРИЛОЖЕНИЕ
 #### Создаем namespace под сервис аутентификации
 ```
-kubectl create namespace warehouse
+kubectl create namespace delivery
 ```
 
 #### "Внешняя" поставка секретов в кластер
 ##### Секрет с данными для подключения к БД
 ```
-kubectl apply -f ./secret/warehouse_secret.yaml -n warehouse
+kubectl apply -f ./secret/delivery_secret.yaml -n delivery
 ```
 
 #### Переходим в директорию с чартом
 ```
-cd ./warehouse
+cd ./delivery
 ```
 
 #### Загружаем чарты зависимостей
@@ -54,7 +45,7 @@ cd ../
 
 #### Устанавливаем чарт сервиса
 ```
-helm install warehouse warehouse -n warehouse
+helm install delivery delivery -n delivery
 ```
 
 #### Включаем (и не закрываем терминал)
@@ -64,33 +55,33 @@ minikube tunnel
 
 #### Проверяем health-check (в новом окне терминала)
 ```
-curl http://arch.homework/warehouse/health/
+curl http://arch.homework/delivery/health/
 ```
 
 
 ### КАК УДАЛИТЬ ПРИЛОЖЕНИЕ
 #### Удаляем чарт и БД
 ```
-helm uninstall warehouse -n warehouse
+helm uninstall delivery -n delivery
 ```
 
 #### Удаляем секрет
 ```
-kubectl delete secret warehouse-db-secret -n warehouse
+kubectl delete secret delivery-db-secret -n delivery
 ```
 
 #### Удаляем PVC, оставшиеся от БД
 ```
-kubectl delete pvc -l app.kubernetes.io/name=warehouse-postgresql,app.kubernetes.io/instance=warehouse -n warehouse
+kubectl delete pvc -l app.kubernetes.io/name=delivery-postgresql,app.kubernetes.io/instance=delivery -n delivery
 ```
 
 #### Сносим PV, оставшиеся от БД (если reclaimPolicy: Retain)
 ```
-kubectl get pv -n warehouse
+kubectl get pv -n delivery
 ```
 Смотрим вывод, узнаем <имя PV> (к сожалению, меток у него не будет - я проверил)
 ```
-kubectl delete pv <имя PV> -n warehouse
+kubectl delete pv <имя PV> -n delivery
 ```
 
 ### Готово!
