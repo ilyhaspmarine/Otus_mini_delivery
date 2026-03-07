@@ -59,54 +59,59 @@ async def create_new_delivery(
     delivery_data: DeliveryCreate,
     db: AsyncSession
 ):
-    # Ищем первого попавшегося курьера свободного
-    result = await db.execute(
-        select(CourierSchema)
-        .where(
-            ~exists().where(
-                (DeliverySchema.courier_id == CourierSchema.id)
-                &
-                (
-                    or_(
-                        DeliverySchema.status == DeliveryStatus.ONGOING,
-                        DeliverySchema.status == DeliveryStatus.PLANNED
+    existing_delivery = await get_delivery_by_order_id(delivery_data.order_id, db)
+
+    if existing_delivery is None:
+        # Ищем первого попавшегося курьера свободного
+        result = await db.execute(
+            select(CourierSchema)
+            .where(
+                ~exists().where(
+                    (DeliverySchema.courier_id == CourierSchema.id)
+                    &
+                    (
+                        or_(
+                            DeliverySchema.status == DeliveryStatus.ONGOING,
+                            DeliverySchema.status == DeliveryStatus.PLANNED
+                        )
                     )
                 )
             )
+            .order_by(CourierSchema.id)
+            .limit(1)
+            .with_for_update()
         )
-        .order_by(CourierSchema.id)
-        .limit(1)
-        .with_for_update()
-    )
 
-    courier = result.scalar_one_or_none()
+        courier = result.scalar_one_or_none()
 
-    if courier is None:
-        raise HTTPException(
-            status_code = status.HTTP_406_NOT_ACCEPTABLE,
-            detail = 'All couriers are busy'
+        if courier is None:
+            raise HTTPException(
+                status_code = status.HTTP_406_NOT_ACCEPTABLE,
+                detail = 'All couriers are busy'
+            )
+        
+        now = datetime.utcnow()
+
+        delivery_new = DeliverySchema(
+            id = uuid.uuid4(),
+            courier_id = courier.id,
+            order_id = delivery_data.order_id,
+            address = delivery_data.address,
+            status = DeliveryStatus.PLANNED,
+            created_at = now,
+            last_changed = now
         )
-    
-    now = datetime.utcnow()
 
-    delivery_new = DeliverySchema(
-        id = uuid.uuid4(),
-        courier_id = courier.id,
-        order_id = delivery_data.order_id,
-        address = delivery_data.address,
-        status = DeliveryStatus.PLANNED,
-        created_at = now,
-        last_changed = now
-    )
+        db.add(delivery_new)
 
-    db.add(delivery_new)
+        try:
+            await db.commit()
+            await db.refresh(delivery_new)
+        except IntegrityError:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = 'Failed to create new delivery')
+    else:
+        delivery_new = existing_delivery
 
-    try:
-        await db.commit()
-        await db.refresh(delivery_new)
-    except IntegrityError:
-        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = 'Failed to create new delivery')
-    
     ret = await build_delivery_return(delivery_new, db)
 
     return ret
@@ -121,7 +126,14 @@ async def get_delivery_by_order_id(
         .filter(DeliverySchema.order_id == order_id)
     )
 
-    delivery = result.scalar_one_or_none()
+    return result.scalar_one_or_none()
+
+
+async def get_delivery_by_order_id_endpoint(
+    order_id: uuid.UUID,
+    db: AsyncSession
+):
+    delivery = await get_delivery_by_order_id(order_id, db)
 
     if delivery is None:
         raise HTTPException(

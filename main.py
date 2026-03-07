@@ -49,7 +49,7 @@ async def get_delivery_for_order_id(
     order_id: UUID,
     db = Depends(_get_db)
 ):
-    delivery = await utils.get_delivery_by_order_id(order_id, db)
+    delivery = await utils.get_delivery_by_order_id_endpoint(order_id, db)
     return delivery
 
 
